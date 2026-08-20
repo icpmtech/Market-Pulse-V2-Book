@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TickerSearchResult } from '../types/finance';
-import { search_tickers } from '../services/yahooFinanceService';
+import { executeFunction } from '../services/agenticExecutor';
 import { StorageService } from '../services/storageService';
 import {
   Search,
@@ -41,8 +41,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
       return;
     }
     const timer = setTimeout(async () => {
-      const res = await search_tickers(query);
-      setResults(res);
+      const res = await executeFunction('search_tickers', { query });
+      setResults(res.data || []);
     }, 150);
     return () => clearTimeout(timer);
   }, [query]);

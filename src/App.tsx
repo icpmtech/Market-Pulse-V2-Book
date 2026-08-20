@@ -7,10 +7,8 @@ import {
   FundamentalMetrics,
 } from './types/finance';
 import {
-  get_stock_quote,
-  get_price_history,
-  get_analyst_insights,
-} from './services/yahooFinanceService';
+  executeFunction,
+} from './services/agenticExecutor';
 import { computeTechnicalIndicators } from './services/technicalAnalysis';
 import { computeFundamentalMetrics } from './services/fundamentalAnalysis';
 import { StorageService } from './services/storageService';
@@ -71,22 +69,29 @@ export default function App() {
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
 
-  // Load ticker data via yFinance skills
+  // Load ticker data via executeFunction wrapper with TTL caching & graceful error recovery
   const loadTickerData = useCallback(
     async (sym: string, p: string = period, i: string = interval) => {
       setIsLoading(true);
       setErrorMsg(null);
       try {
-        // Skill 1: get_stock_quote
-        const quoteData = await get_stock_quote(sym);
+        // Skill 1: get_stock_quote (with TTL cache & graceful error capture)
+        const quoteRes = await executeFunction('get_stock_quote', { symbol: sym });
+        if (!quoteRes.success || !quoteRes.data) {
+          setErrorMsg(quoteRes.error || `Símbolo '${sym}' não encontrado no Yahoo Finance.`);
+          return;
+        }
+        const quoteData = quoteRes.data;
         setQuote(quoteData);
 
         // Skill 2: get_price_history
-        const historyData = await get_price_history(sym, p, i);
+        const historyRes = await executeFunction('get_price_history', { symbol: sym, range: p, interval: i });
+        const historyData = historyRes.data || [];
         setHistory(historyData);
 
         // Skill 3: get_analyst_insights
-        const insightsData = await get_analyst_insights(sym);
+        const insightsRes = await executeFunction('get_analyst_insights', { symbol: sym });
+        const insightsData = insightsRes.data || null;
         setInsights(insightsData);
 
         // Compute technical indicators from history
@@ -96,10 +101,13 @@ export default function App() {
         }
 
         // Compute fundamental analysis
-        const fund = computeFundamentalMetrics(quoteData, insightsData);
-        setFundamentalMetrics(fund);
+        if (quoteData) {
+          const fund = computeFundamentalMetrics(quoteData, insightsData);
+          setFundamentalMetrics(fund);
+        }
       } catch (err: any) {
-        setErrorMsg('Não foi possível carregar os dados deste ticker.');
+        // Fallback error capture
+        setErrorMsg('Erro de conexão ao carregar os dados deste ticker.');
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);

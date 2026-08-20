@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
-  get_stock_quote,
-  get_price_history,
-  get_analyst_insights,
-} from '../services/yahooFinanceService';
+  executeFunction,
+  runAgenticLoop,
+  functionCache,
+  AgentStepLog,
+  AgentLoopResponse,
+} from '../services/agenticExecutor';
 import {
   Terminal,
   Play,
@@ -14,6 +16,12 @@ import {
   Clock,
   Sparkles,
   FileJson,
+  ShieldCheck,
+  Cpu,
+  RefreshCw,
+  AlertTriangle,
+  Database,
+  Layers,
 } from 'lucide-react';
 
 interface SkillsApiConsoleProps {
@@ -25,39 +33,82 @@ export const SkillsApiConsole: React.FC<SkillsApiConsoleProps> = ({
   initialSymbol = 'NVDA',
   onSelectSymbol,
 }) => {
-  const [selectedSkill, setSelectedSkill] = useState<'get_stock_quote' | 'get_price_history' | 'get_analyst_insights'>('get_stock_quote');
+  const [selectedSkill, setSelectedSkill] = useState<
+    'get_stock_quote' | 'get_price_history' | 'get_analyst_insights' | 'agentic_loop'
+  >('get_stock_quote');
   const [symbol, setSymbol] = useState(initialSymbol);
   const [period, setPeriod] = useState('1y');
   const [interval, setInterval] = useState('1d');
   const [output, setOutput] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [execTime, setExecTime] = useState<number | null>(null);
+  const [isCachedResult, setIsCachedResult] = useState<boolean>(false);
   const [copied, setCopied] = useState(false);
   const [codeLang, setCodeLang] = useState<'python' | 'ts'>('python');
 
+  // Agentic Loop state
+  const [agentLogs, setAgentLogs] = useState<AgentStepLog[]>([]);
+  const [agentSummary, setAgentSummary] = useState<AgentLoopResponse | null>(null);
+
   const handleExecuteSkill = async () => {
     setLoading(true);
+    setIsCachedResult(false);
+    setAgentLogs([]);
+    setAgentSummary(null);
     const start = performance.now();
+
     try {
-      let result;
-      if (selectedSkill === 'get_stock_quote') {
-        result = await get_stock_quote(symbol);
-      } else if (selectedSkill === 'get_price_history') {
-        result = await get_price_history(symbol, period, interval);
-      } else if (selectedSkill === 'get_analyst_insights') {
-        result = await get_analyst_insights(symbol);
+      if (selectedSkill === 'agentic_loop') {
+        // Execute Agentic Loop with strict step < 6 limit
+        const loopRes = await runAgenticLoop(`Análise completa de ${symbol}`, {
+          symbol,
+          onStepProgress: (log) => {
+            setAgentLogs((prev) => [...prev, log]);
+          },
+        });
+        setAgentSummary(loopRes);
+        setOutput(loopRes);
+      } else {
+        // Execute via executeFunction with TTL cache & error handling
+        let args: Record<string, any> = { symbol };
+        if (selectedSkill === 'get_price_history') {
+          args = { symbol, range: period, interval };
+        }
+
+        const res = await executeFunction(selectedSkill, args);
+        setOutput(res);
+        setIsCachedResult(Boolean(res.cached));
       }
-      setOutput(result);
       setExecTime(Math.round(performance.now() - start));
     } catch (err: any) {
-      setOutput({ error: err.message || 'Falha ao executar skill' });
+      setOutput({
+        success: false,
+        error: err.message || 'Falha ao executar função',
+        executedAt: new Date().toISOString(),
+      });
       setExecTime(Math.round(performance.now() - start));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClearCache = () => {
+    functionCache.clear();
+    alert('Cache de execuções de funções limpo com sucesso!');
+  };
+
   const getGeneratedCode = () => {
+    if (selectedSkill === 'agentic_loop') {
+      return `// Agentic Loop Execution (Step Limit: step < 6)
+import { runAgenticLoop, executeFunction } from '@/services/agenticExecutor';
+
+// Executa loop agentivo até o limite estrito (step < 6)
+const response = await runAgenticLoop('Análise de ${symbol}', { symbol: '${symbol}' });
+
+console.log('Passos executados:', response.stepsExecuted);
+console.log('Concluído com segurança:', response.completed);`;
+    }
+
     if (codeLang === 'python') {
       if (selectedSkill === 'get_stock_quote') {
         return `# Python yFinance Skill: get_stock_quote
@@ -76,7 +127,6 @@ def get_stock_quote(symbol: str):
         "52w_low": info.get("fiftyTwoWeekLow")
     }
 
-# Execução
 quote = get_stock_quote("${symbol}")
 print(quote)`;
       } else if (selectedSkill === 'get_price_history') {
@@ -86,11 +136,10 @@ import yfinance as yf
 def get_price_history(symbol: str, period="${period}", interval="${interval}"):
     ticker = yf.Ticker(symbol)
     df = ticker.history(period=period, interval=interval)
-    # OHLCV DataFrame pronto para Apache ECharts ou análise técnica
     return df.reset_index().to_dict(orient="records")
 
 history = get_price_history("${symbol}")
-print(f"Total velas carregadas: {len(history)}")`;
+print(f"Total velas: {len(history)}")`;
       } else {
         return `# Python yFinance Skill: get_analyst_insights
 import yfinance as yf
@@ -100,33 +149,23 @@ def get_analyst_insights(symbol: str):
     return {
         "target_price": ticker.analyst_price_targets,
         "recommendations": ticker.recommendations_summary,
-        "earnings_history": ticker.earnings_history,
-        "upgrades_downgrades": ticker.upgrades_downgrades.head(5).to_dict()
+        "earnings_history": ticker.earnings_history
     }
 
 insights = get_analyst_insights("${symbol}")
 print(insights)`;
       }
     } else {
-      if (selectedSkill === 'get_stock_quote') {
-        return `// TypeScript Skill: get_stock_quote
-import { get_stock_quote } from '@/services/yahooFinanceService';
+      return `// TypeScript executeFunction with TTL Cache & Error Catching
+import { executeFunction } from '@/services/agenticExecutor';
 
-const quote = await get_stock_quote('${symbol}');
-console.log('Preço:', quote.regularMarketPrice, quote.currency);`;
-      } else if (selectedSkill === 'get_price_history') {
-        return `// TypeScript Skill: get_price_history
-import { get_price_history } from '@/services/yahooFinanceService';
-
-const candles = await get_price_history('${symbol}', '${period}', '${interval}');
-console.log('Total de velas:', candles.length);`;
-      } else {
-        return `// TypeScript Skill: get_analyst_insights
-import { get_analyst_insights } from '@/services/yahooFinanceService';
-
-const insights = await get_analyst_insights('${symbol}');
-console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights.upsidePotentialPercent + '%');`;
-      }
+// Chamada encapsulada com cache em memória (TTL 30s) e tratamento gracioso de erro
+const result = await executeFunction('${selectedSkill}', { symbol: '${symbol}' });
+if (result.success) {
+  console.log('Dados:', result.data, 'Cached:', result.cached);
+} else {
+  console.warn('Erro capturado sem interromper requisição:', result.error);
+}`;
     }
   };
 
@@ -142,31 +181,71 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-sky-400" /> Console de Skills yFinance (API Playground)
+            <Terminal className="w-5 h-5 text-sky-400" /> Console Agentivo & API yFinance Playground
           </h2>
           <p className="text-xs text-slate-400">
-            Execute diretamente as 3 skills solicitadas: <code className="text-sky-300">get_stock_quote</code>,{' '}
-            <code className="text-emerald-300">get_price_history</code> e <code className="text-purple-300">get_analyst_insights</code>.
+            Execução de funções com <strong>Cache TTL</strong>, <strong>Tratamento Gracioso de Erro</strong> e <strong>Limite Rígido (<code className="text-amber-300 font-mono">step &lt; 6</code>)</strong>.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {isCachedResult && (
+            <span className="flex items-center gap-1 text-xs font-mono bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700 text-indigo-300">
+              <Database className="w-3.5 h-3.5" /> Cache HIT (0ms latency)
+            </span>
+          )}
+
           {execTime !== null && (
             <span className="flex items-center gap-1 text-xs font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-emerald-400">
               <Clock className="w-3.5 h-3.5" /> Latência: {execTime}ms
             </span>
           )}
+
+          <button
+            onClick={handleClearCache}
+            className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition text-xs flex items-center gap-1"
+            title="Limpar Cache In-Memory"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Principles Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div className="bg-amber-950/30 border border-amber-800/40 p-3 rounded-xl flex items-start gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-amber-300 block">1. Limite de Iterações (step &lt; 6)</strong>
+            <span className="text-slate-400">Garante que loops agentivos terminem em até 5 passos sem gerar consumo infinito.</span>
+          </div>
+        </div>
+
+        <div className="bg-emerald-950/30 border border-emerald-800/40 p-3 rounded-xl flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-emerald-300 block">2. Tratamento Gracioso de Erros</strong>
+            <span className="text-slate-400">Erros na API são retornados em payload JSON para recuperação pelo modelo.</span>
+          </div>
+        </div>
+
+        <div className="bg-indigo-950/30 border border-indigo-800/40 p-3 rounded-xl flex items-start gap-2.5">
+          <Database className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-indigo-300 block">3. Cache In-Memory na executeFunction</strong>
+            <span className="text-slate-400">Ativos consultados repetidamente respondem do cache (TTL 15s–60s).</span>
+          </div>
         </div>
       </div>
 
       {/* Skill Tabs & Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           onClick={() => {
             setSelectedSkill('get_stock_quote');
             setOutput(null);
           }}
-          className={`p-3.5 rounded-xl border text-left transition ${
+          className={`p-3 rounded-xl border text-left transition ${
             selectedSkill === 'get_stock_quote'
               ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10'
               : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -175,7 +254,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
           <div className="flex items-center gap-2 font-mono font-bold text-xs text-sky-300">
             <Zap className="w-3.5 h-3.5" /> get_stock_quote
           </div>
-          <div className="text-xs text-slate-300 mt-1">Cotação em tempo real, múltiplos e variação</div>
+          <div className="text-[11px] text-slate-300 mt-1">Cotação e indicadores (Cache 30s)</div>
         </button>
 
         <button
@@ -183,7 +262,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
             setSelectedSkill('get_price_history');
             setOutput(null);
           }}
-          className={`p-3.5 rounded-xl border text-left transition ${
+          className={`p-3 rounded-xl border text-left transition ${
             selectedSkill === 'get_price_history'
               ? 'bg-emerald-600/20 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
               : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -192,7 +271,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
           <div className="flex items-center gap-2 font-mono font-bold text-xs text-emerald-300">
             <Zap className="w-3.5 h-3.5" /> get_price_history
           </div>
-          <div className="text-xs text-slate-300 mt-1">Série temporal de velas OHLCV e volume</div>
+          <div className="text-[11px] text-slate-300 mt-1">Velas OHLCV (Cache 120s)</div>
         </button>
 
         <button
@@ -200,7 +279,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
             setSelectedSkill('get_analyst_insights');
             setOutput(null);
           }}
-          className={`p-3.5 rounded-xl border text-left transition ${
+          className={`p-3 rounded-xl border text-left transition ${
             selectedSkill === 'get_analyst_insights'
               ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-500/10'
               : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -209,7 +288,24 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
           <div className="flex items-center gap-2 font-mono font-bold text-xs text-purple-300">
             <Zap className="w-3.5 h-3.5" /> get_analyst_insights
           </div>
-          <div className="text-xs text-slate-300 mt-1">Preço-alvo, consenso e histórico de lucros</div>
+          <div className="text-[11px] text-slate-300 mt-1">Preço-alvo e consenso (Cache 300s)</div>
+        </button>
+
+        <button
+          onClick={() => {
+            setSelectedSkill('agentic_loop');
+            setOutput(null);
+          }}
+          className={`p-3 rounded-xl border text-left transition ${
+            selectedSkill === 'agentic_loop'
+              ? 'bg-amber-600/20 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center gap-2 font-mono font-bold text-xs text-amber-300">
+            <Cpu className="w-3.5 h-3.5" /> Loop Agentivo (step &lt; 6)
+          </div>
+          <div className="text-[11px] text-slate-300 mt-1">Execução multi-step automatizada</div>
         </button>
       </div>
 
@@ -221,7 +317,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
             type="text"
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            placeholder="ex: NVDA, PETR4.SA, BTC-USD"
+            placeholder="ex: NVDA, PETR4.SA, INVALID_TICKER"
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono uppercase focus:outline-hidden focus:border-blue-500"
           />
         </div>
@@ -241,7 +337,6 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
                 <option value="6mo">6 Meses</option>
                 <option value="1y">1 Ano</option>
                 <option value="5y">5 Anos</option>
-                <option value="max">Máximo</option>
               </select>
             </div>
 
@@ -254,16 +349,13 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
               >
                 <option value="1m">1 Minuto</option>
                 <option value="5m">5 Minutos</option>
-                <option value="15m">15 Minutos</option>
                 <option value="1d">1 Dia</option>
-                <option value="1wk">1 Semana</option>
-                <option value="1mo">1 Mês</option>
               </select>
             </div>
           </>
         )}
 
-        <div className="pt-4">
+        <div className="pt-4 flex items-center gap-2">
           <button
             onClick={handleExecuteSkill}
             disabled={loading}
@@ -274,10 +366,44 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
             ) : (
               <Play className="w-4 h-4 fill-white" />
             )}
-            Executar Skill
+            {selectedSkill === 'agentic_loop' ? 'Disparar Loop Agentivo' : 'Executar via executeFunction'}
           </button>
         </div>
       </div>
+
+      {/* Step Progress for Agentic Loop */}
+      {agentLogs.length > 0 && (
+        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <h4 className="text-xs font-bold text-amber-400 flex items-center gap-2">
+            <Cpu className="w-4 h-4" /> Progresso do Loop Agentivo (Limite Rígido: step &lt; 6)
+          </h4>
+
+          <div className="space-y-1.5 font-mono text-[11px]">
+            {agentLogs.map((log) => (
+              <div
+                key={log.step}
+                className="p-2 bg-slate-900/80 rounded-lg border border-slate-800 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">
+                    Step {log.step}
+                  </span>
+                  <span className="text-slate-200">{log.action}</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] ${log.result.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                  {log.result.cached ? 'CACHE HIT' : log.result.success ? 'OK' : 'ERRO CAPTURADO'}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {agentSummary && (
+            <div className="p-3 bg-emerald-950/40 border border-emerald-800/40 rounded-xl text-xs text-emerald-300 mt-3 font-mono">
+              ✅ {agentSummary.finalAnswer} (Passos Totais: {agentSummary.stepsExecuted} / 5)
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Code Snippet & Output Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -285,7 +411,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
         <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
             <div className="flex items-center gap-2 font-semibold text-slate-300">
-              <Code className="w-4 h-4 text-amber-400" /> Código Equivalente
+              <Code className="w-4 h-4 text-amber-400" /> Código de Integração
             </div>
             <div className="flex items-center gap-2">
               <div className="flex bg-slate-900 p-0.5 rounded-md border border-slate-800 text-[11px]">
@@ -293,7 +419,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
                   onClick={() => setCodeLang('python')}
                   className={`px-2 py-0.5 rounded ${codeLang === 'python' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
                 >
-                  Python (yfinance)
+                  Python
                 </button>
                 <button
                   onClick={() => setCodeLang('ts')}
@@ -321,11 +447,17 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
         <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
             <div className="flex items-center gap-2 font-semibold text-slate-300">
-              <FileJson className="w-4 h-4 text-emerald-400" /> Resposta da Skill (JSON Payload)
+              <FileJson className="w-4 h-4 text-emerald-400" /> Payload JSON Retornado
             </div>
             {output && (
-              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                Payload Válido
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded border font-mono ${
+                  output.success === false
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                }`}
+              >
+                {output.cached ? 'CACHE HIT' : output.success === false ? 'ERRO CAPTURADO' : 'SUCESSO'}
               </span>
             )}
           </div>
@@ -338,7 +470,7 @@ console.log('Preço-Alvo Médio:', insights.targetMeanPrice, 'Upside:', insights
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
                 <Terminal className="w-8 h-8 mb-2 opacity-40" />
-                Clique em "Executar Skill" para disparar a consulta.
+                Clique em "Executar" para disparar a chamada.
               </div>
             )}
           </div>

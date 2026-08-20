@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StockQuote } from '../types/finance';
-import { get_stock_quote } from '../services/yahooFinanceService';
+import { executeFunction } from '../services/agenticExecutor';
 import { formatCurrency, formatNumber } from '../services/storageService';
 import {
   GitCompare,
@@ -43,11 +43,9 @@ export const TickerComparisonModal: React.FC<TickerComparisonModalProps> = ({
       setLoading(true);
       const list: StockQuote[] = [];
       for (const s of symbols) {
-        try {
-          const q = await get_stock_quote(s);
-          list.push(q);
-        } catch {
-          // ignore
+        const res = await executeFunction('get_stock_quote', { symbol: s });
+        if (res.success && res.data) {
+          list.push(res.data);
         }
       }
       setQuotes(list);
