@@ -502,31 +502,31 @@ export const StockChart: React.FC<StockChartProps> = ({
   return (
     <div className={`geometric-card rounded-2xl p-4 shadow-xl flex flex-col ${isFullscreen ? 'fixed inset-4 z-50 bg-[#030712] p-6' : ''}`}>
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-        {/* Left: Timeframe pills */}
-        <div className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 shadow-inner">
-          {periods.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => onPeriodChange(p.value)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                period === p.value
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800/80 overflow-x-auto scrollbar-none touch-pan-x">
+        {/* Left & Middle: Timeframe pills & Chart controls */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none whitespace-nowrap shrink-0">
+          {/* Timeframe pills */}
+          <div className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 shadow-inner shrink-0">
+            {periods.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => onPeriodChange(p.value)}
+                className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition-all min-h-[32px] ${
+                  period === p.value
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Middle: Chart style controls */}
-        <div className="flex items-center gap-1.5 flex-wrap">
           {/* Chart Type Buttons */}
-          <div className="flex bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner">
+          <div className="flex bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner shrink-0">
             <button
               onClick={() => setChartType('candlestick')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition min-h-[32px] ${
                 chartType === 'candlestick' ? 'bg-slate-800 text-emerald-400 shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
               title="Velas Japonesas (Candlestick)"
@@ -535,7 +535,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setChartType('line')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition min-h-[32px] ${
                 chartType === 'line' ? 'bg-slate-800 text-sky-400 shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
               title="Linha Simples"
@@ -544,7 +544,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setChartType('area')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition min-h-[32px] ${
                 chartType === 'area' ? 'bg-slate-800 text-sky-300 shadow-xs' : 'text-slate-400 hover:text-white'
               }`}
               title="Área com Gradiente"
@@ -554,10 +554,10 @@ export const StockChart: React.FC<StockChartProps> = ({
           </div>
 
           {/* Indicators Overlays Toggle */}
-          <div className="flex items-center gap-1 bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner">
+          <div className="flex items-center gap-1 bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner shrink-0">
             <button
               onClick={() => setShowSMA20(!showSMA20)}
-              className={`px-2 py-1 rounded-lg font-mono transition ${
+              className={`px-2 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 showSMA20 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'
               }`}
               title="Média Móvel 20 períodos"
@@ -566,7 +566,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setShowSMA50(!showSMA50)}
-              className={`px-2 py-1 rounded-lg font-mono transition ${
+              className={`px-2 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 showSMA50 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'text-slate-500 hover:text-slate-300'
               }`}
               title="Média Móvel 50 períodos"
@@ -575,7 +575,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setShowSMA200(!showSMA200)}
-              className={`px-2 py-1 rounded-lg font-mono transition ${
+              className={`px-2 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 showSMA200 ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'text-slate-500 hover:text-slate-300'
               }`}
               title="Média Móvel 200 períodos"
@@ -584,7 +584,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setShowBollinger(!showBollinger)}
-              className={`px-2 py-1 rounded-lg font-mono transition ${
+              className={`px-2 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 showBollinger ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-500 hover:text-slate-300'
               }`}
               title="Bandas de Bollinger (20, 2σ)"
@@ -594,10 +594,10 @@ export const StockChart: React.FC<StockChartProps> = ({
           </div>
 
           {/* Sub-oscillator selector */}
-          <div className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner">
+          <div className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800/80 text-xs shadow-inner shrink-0">
             <button
               onClick={() => setBottomOscillator(bottomOscillator === 'rsi' ? 'none' : 'rsi')}
-              className={`px-2.5 py-1 rounded-lg font-mono transition ${
+              className={`px-2.5 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 bottomOscillator === 'rsi' ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -605,7 +605,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             </button>
             <button
               onClick={() => setBottomOscillator(bottomOscillator === 'macd' ? 'none' : 'macd')}
-              className={`px-2.5 py-1 rounded-lg font-mono transition ${
+              className={`px-2.5 py-1 rounded-lg font-mono transition min-h-[32px] ${
                 bottomOscillator === 'macd' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -615,10 +615,10 @@ export const StockChart: React.FC<StockChartProps> = ({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-end gap-1.5 shrink-0">
           <button
             onClick={() => setIsLogScale(!isLogScale)}
-            className={`p-1.5 rounded-lg border text-xs font-mono transition ${
+            className={`p-1.5 rounded-lg border text-xs font-mono transition min-h-[32px] px-2 ${
               isLogScale ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
             }`}
             title="Alternar Escala Logarítmica / Linear"
@@ -627,14 +627,14 @@ export const StockChart: React.FC<StockChartProps> = ({
           </button>
           <button
             onClick={handleDownloadSnapshot}
-            className="p-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition"
+            className="p-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition min-h-[32px] px-2"
             title="Baixar Imagem PNG do Gráfico"
           >
             <Camera className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition"
+            className="p-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition min-h-[32px] px-2"
             title={isFullscreen ? 'Sair de Tela Cheia' : 'Expandir Tela Cheia'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

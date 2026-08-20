@@ -12,6 +12,7 @@ import {
   RotateCw,
   Share2,
   Check,
+  Mail,
 } from 'lucide-react';
 
 interface TickerHeaderProps {
@@ -20,6 +21,7 @@ interface TickerHeaderProps {
   onOpenAlerts: () => void;
   onOpenCompare: () => void;
   onOpenPortfolio: () => void;
+  onOpenGmailShare?: () => void;
   isRefreshing?: boolean;
 }
 
@@ -29,6 +31,7 @@ export const TickerHeader: React.FC<TickerHeaderProps> = ({
   onOpenAlerts,
   onOpenCompare,
   onOpenPortfolio,
+  onOpenGmailShare,
   isRefreshing = false,
 }) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
@@ -77,59 +80,59 @@ export const TickerHeader: React.FC<TickerHeaderProps> = ({
   };
 
   return (
-    <div className="geometric-card rounded-2xl p-5 shadow-xl">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+    <div className="geometric-card rounded-2xl p-4 sm:p-5 shadow-xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5">
         {/* Left: Ticker Identification & Price */}
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2.5">
+        <div className="space-y-1.5 sm:space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
               {quote.symbol}
             </h1>
-            <span className="text-xs bg-slate-950/80 text-slate-300 border border-slate-700/60 px-2.5 py-1 rounded-lg font-mono font-semibold">
+            <span className="text-[11px] sm:text-xs bg-slate-950/80 text-slate-300 border border-slate-700/60 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg font-mono font-semibold">
               {quote.exchange}
             </span>
             {quote.sector && (
-              <span className="text-xs bg-blue-500/10 text-sky-300 border border-blue-500/30 px-2.5 py-1 rounded-lg font-medium">
+              <span className="text-[11px] sm:text-xs bg-blue-500/10 text-sky-300 border border-blue-500/30 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg font-medium">
                 {quote.sector}
               </span>
             )}
-            <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1.5 font-mono">
+            <span className="text-[10px] sm:text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1.5 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Mercado Aberto
             </span>
           </div>
 
-          <div className="text-xs text-slate-400 font-medium">
+          <div className="text-xs text-slate-400 font-medium truncate max-w-full">
             {quote.longName || quote.shortName}
           </div>
 
           {/* Large Price and Day Change */}
-          <div className="flex flex-wrap items-baseline gap-3 pt-1">
-            <div className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight">
+          <div className="flex flex-wrap items-baseline gap-2 sm:gap-3 pt-1">
+            <div className="text-2xl sm:text-4xl font-mono font-black text-white tracking-tight">
               {formatCurrency(quote.regularMarketPrice, quote.currency)}
             </div>
 
             <div
-              className={`flex items-center gap-1 font-mono font-bold text-sm sm:text-base px-2.5 py-0.5 rounded-xl transition shadow-sm ${
+              className={`flex items-center gap-1 font-mono font-bold text-xs sm:text-base px-2 sm:px-2.5 py-0.5 rounded-xl transition shadow-sm ${
                 isUp
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
               }`}
             >
-              {isUp ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+              {isUp ? <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <ArrowDownRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               <span>{isUp ? '+' : ''}{quote.regularMarketChange.toFixed(2)}</span>
               <span>({isUp ? '+' : ''}{quote.regularMarketChangePercent.toFixed(2)}%)</span>
             </div>
 
-            <span className="text-xs text-slate-500 font-mono">
-              Fech. Anterior: ${quote.regularMarketPreviousClose.toFixed(2)}
+            <span className="text-[11px] sm:text-xs text-slate-500 font-mono">
+              Fech. Ant: ${quote.regularMarketPreviousClose.toFixed(2)}
             </span>
           </div>
         </div>
 
         {/* Middle: 52-Week Range Bar */}
-        <div className="lg:w-72 bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/90 space-y-2 shadow-inner">
-          <div className="flex justify-between text-[11px] font-mono text-slate-400">
+        <div className="lg:w-72 bg-slate-950/80 p-3 sm:p-3.5 rounded-xl border border-slate-800/90 space-y-1.5 shadow-inner">
+          <div className="flex justify-between text-[10px] sm:text-[11px] font-mono text-slate-400">
             <span>Mín 52S: ${quote.fiftyTwoWeekLow.toFixed(2)}</span>
             <span>Máx 52S: ${quote.fiftyTwoWeekHigh.toFixed(2)}</span>
           </div>
@@ -145,11 +148,11 @@ export const TickerHeader: React.FC<TickerHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Right: Action Buttons (Touch Friendly Scroll Row on Mobile) */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-1 -mx-1 px-1 touch-pan-x">
           <button
             onClick={handleToggleWatchlist}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition shrink-0 min-h-[40px] ${
               isInWatchlist
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10'
                 : 'bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700'
@@ -161,25 +164,36 @@ export const TickerHeader: React.FC<TickerHeaderProps> = ({
 
           <button
             onClick={onOpenAlerts}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium transition shrink-0 min-h-[40px]"
             title="Definir Alerta de Preço"
           >
             <Bell className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Alertas</span>
+            <span>Alertas</span>
           </button>
+
+          {onOpenGmailShare && (
+            <button
+              onClick={onOpenGmailShare}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition shrink-0 min-h-[40px]"
+              title="Compartilhar Relatório via Gmail"
+            >
+              <Mail className="w-4 h-4 text-rose-400" />
+              <span>Gmail</span>
+            </button>
+          )}
 
           <button
             onClick={onOpenCompare}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium transition shrink-0 min-h-[40px]"
             title="Comparar Tickers"
           >
             <GitCompare className="w-4 h-4 text-sky-400" />
-            <span className="hidden sm:inline">Comparar</span>
+            <span>Comparar</span>
           </button>
 
           <button
             onClick={handleExportData}
-            className="p-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition"
+            className="p-2.5 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition shrink-0 min-h-[40px]"
             title="Exportar JSON da Cotação"
           >
             <Download className="w-4 h-4" />
@@ -188,7 +202,7 @@ export const TickerHeader: React.FC<TickerHeaderProps> = ({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="p-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition disabled:opacity-50"
+            className="p-2.5 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition disabled:opacity-50 shrink-0 min-h-[40px]"
             title="Atualizar Cotação"
           >
             <RotateCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-sky-400' : ''}`} />

@@ -99,14 +99,19 @@ export const SkillsApiConsole: React.FC<SkillsApiConsoleProps> = ({
 
   const getGeneratedCode = () => {
     if (selectedSkill === 'agentic_loop') {
-      return `// Agentic Loop Execution (Step Limit: step < 6)
-import { runAgenticLoop, executeFunction } from '@/services/agenticExecutor';
+      return `// Parallel vs Sequential Function Calling Pattern
+import { runAgenticLoop, executeParallelFunctions, executeFunction } from '@/services/agenticExecutor';
 
-// Executa loop agentivo até o limite estrito (step < 6)
-const response = await runAgenticLoop('Análise de ${symbol}', { symbol: '${symbol}' });
+// 1. Chamadas Paralelas Simultâneas com Promise.all (Recomendado para chamadas independentes)
+const [quote, history, insights] = await Promise.all([
+  executeFunction('get_stock_quote', { symbol: '${symbol}' }),
+  executeFunction('get_price_history', { symbol: '${symbol}', range: '${period}' }),
+  executeFunction('get_analyst_insights', { symbol: '${symbol}' }),
+]);
 
-console.log('Passos executados:', response.stepsExecuted);
-console.log('Concluído com segurança:', response.completed);`;
+// 2. Ou através de um Loop Agentivo otimizado (Limite rígido: step < 6)
+const agentResponse = await runAgenticLoop('Análise completa de ${symbol}', { symbol: '${symbol}' });
+console.log('Passos executados:', agentResponse.stepsExecuted);`;
     }
 
     if (codeLang === 'python') {

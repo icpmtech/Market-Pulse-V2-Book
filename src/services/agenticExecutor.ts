@@ -178,6 +178,24 @@ export async function executeFunction(
   }
 }
 
+/**
+ * Encapsulates parallel function execution using Promise.all for independent tool calls.
+ * When the model requests multiple independent function calls (e.g. quotes for 3 tickers or quote + history + insights),
+ * executing them simultaneously with Promise.all reduces overall request latency.
+ */
+export async function executeParallelFunctions(
+  calls: Array<{ functionName: string; args: Record<string, any> }>
+): Promise<FunctionExecutionResult[]> {
+  if (!calls || calls.length === 0) return [];
+
+  // Execute all independent calls simultaneously using Promise.all
+  const results = await Promise.all(
+    calls.map((call) => executeFunction(call.functionName, call.args))
+  );
+
+  return results;
+}
+
 // ----------------------------------------------------------------------
 // Principle 1: Iterative Agent Loop with Strict Step Limit (`step < 6`)
 // ----------------------------------------------------------------------
@@ -187,8 +205,9 @@ export interface AgentStepLog {
   action: string;
   functionCalled?: string;
   args?: Record<string, any>;
-  result: FunctionExecutionResult | any;
+  result: FunctionExecutionResult | FunctionExecutionResult[] | any;
   timestamp: string;
+  isParallel?: boolean;
 }
 
 export interface AgentLoopResponse {
@@ -198,19 +217,23 @@ export interface AgentLoopResponse {
   stepLogs: AgentStepLog[];
   finalAnswer: string;
   accumulatedData: Record<string, any>;
+  parallelExecutionUsed: boolean;
 }
 
 /**
  * Runs a multi-step agentic execution loop with a strict `step < 6` boundary.
+ * Leverages `executeParallelFunctions` (Promise.all) for independent queries in Step 1.
  */
 export async function runAgenticLoop(
   userQuery: string,
   options?: {
     symbol?: string;
+    compareSymbols?: string[];
     onStepProgress?: (log: AgentStepLog) => void;
   }
 ): Promise<AgentLoopResponse> {
   const symbol = (options?.symbol || 'NVDA').trim().toUpperCase();
+  const compareSymbols = options?.compareSymbols || [symbol, 'AAPL', 'MSFT'];
   const stepLogs: AgentStepLog[] = [];
   const accumulatedData: Record<string, any> = {};
 
@@ -219,68 +242,97 @@ export async function runAgenticLoop(
 
   // Agent loop strictly enforced with step < 6
   while (step < MAX_STEPS) {
-    let functionName = '';
-    let args: Record<string, any> = {};
-
-    // Determine function to invoke based on step in the loop
     if (step === 1) {
-      functionName = 'get_stock_quote';
-      args = { symbol };
-    } else if (step === 2) {
-      functionName = 'get_price_history';
-      args = { symbol, range: '1y', interval: '1d' };
-    } else if (step === 3) {
-      functionName = 'get_analyst_insights';
-      args = { symbol };
+      // Step 1: Parallel Execution - Fetch quote, price history, and analyst insights simultaneously using Promise.all
+      const parallelCalls = [
+        { functionName: 'get_stock_quote', args: { symbol } },
+        { functionName: 'get_price_history', args: { symbol, range: '1y', interval: '1d' } },
+        { functionName: 'get_analyst_insights', args: { symbol } },
+      ];
+
+      const parallelResults = await executeParallelFunctions(parallelCalls);
+
+      parallelResults.forEach((res) => {
+        if (res.success && res.data) {
+          accumulatedData[res.functionName] = res.data;
+        } else {
+          accumulatedData[`${res.functionName}_error`] = res.error;
+        }
+      });
+
+      const logEntry: AgentStepLog = {
+        step,
+        action: `[PARALELO (Promise.all)] Executou simultaneamente get_stock_quote, get_price_history e get_analyst_insights para ${symbol}`,
+        result: parallelResults,
+        timestamp: new Date().toLocaleTimeString('pt-BR'),
+        isParallel: true,
+      };
+
+      stepLogs.push(logEntry);
+      if (options?.onStepProgress) options.onStepProgress(logEntry);
+
+    } else if (step === 2 && compareSymbols.length > 1) {
+      // Step 2: Parallel Comparison Execution - Fetch quotes for multiple comparison tickers simultaneously
+      const parallelComparisonCalls = compareSymbols.map((s) => ({
+        functionName: 'get_stock_quote',
+        args: { symbol: s },
+      }));
+
+      const comparisonResults = await executeParallelFunctions(parallelComparisonCalls);
+
+      accumulatedData.comparisonQuotes = comparisonResults.map((r) => r.data).filter(Boolean);
+
+      const logEntry: AgentStepLog = {
+        step,
+        action: `[PARALELO (Promise.all)] Executou cotações em paralelo para os tickers de comparação: ${compareSymbols.join(', ')}`,
+        result: comparisonResults,
+        timestamp: new Date().toLocaleTimeString('pt-BR'),
+        isParallel: true,
+      };
+
+      stepLogs.push(logEntry);
+      if (options?.onStepProgress) options.onStepProgress(logEntry);
+
     } else {
-      // Steps 4-5: Dynamic queries or search verification if needed
-      functionName = 'search_tickers';
-      args = { query: symbol };
+      // Sequential step for any dependent verification if required
+      const functionName = 'search_tickers';
+      const args = { query: symbol };
+      const result = await executeFunction(functionName, args);
+
+      const logEntry: AgentStepLog = {
+        step,
+        action: `[SEQUENCIAL] Busca de verificação de tickers para ${symbol}`,
+        functionCalled: functionName,
+        args,
+        result,
+        timestamp: new Date().toLocaleTimeString('pt-BR'),
+        isParallel: false,
+      };
+
+      stepLogs.push(logEntry);
+      if (options?.onStepProgress) options.onStepProgress(logEntry);
     }
 
-    // Execute function through cached & error-catching executeFunction layer
-    const result = await executeFunction(functionName, args);
-
-    const logEntry: AgentStepLog = {
-      step,
-      action: `Executando ${functionName} para ${symbol} (Passo ${step} de 5)`,
-      functionCalled: functionName,
-      args,
-      result,
-      timestamp: new Date().toLocaleTimeString('pt-BR'),
-    };
-
-    stepLogs.push(logEntry);
-    if (options?.onStepProgress) {
-      options.onStepProgress(logEntry);
-    }
-
-    // Store returned result or handle error gracefully
-    if (result.success && result.data) {
-      accumulatedData[functionName] = result.data;
-    } else {
-      // Record graceful function error output in accumulated data for model recovery
-      accumulatedData[`${functionName}_error`] = result.error;
-    }
-
-    // Check if we have gathered all necessary information to answer early
-    if (accumulatedData.get_stock_quote && accumulatedData.get_price_history && accumulatedData.get_analyst_insights) {
-      // Early convergence achieved
+    // Check convergence: if we gathered stock_quote, price_history, and analyst_insights
+    if (
+      accumulatedData.get_stock_quote &&
+      accumulatedData.get_price_history &&
+      accumulatedData.get_analyst_insights
+    ) {
       return {
         query: userQuery,
         completed: true,
         stepsExecuted: step,
         stepLogs,
-        finalAnswer: `Análise concluída com sucesso em ${step} passos (limite rígido step < 6 mantido).`,
+        finalAnswer: `Análise paralela concluída com sucesso em ${step} passo(s) (Promise.all utilizado para otimizar latência e limite step < 6).`,
         accumulatedData,
+        parallelExecutionUsed: true,
       };
     }
 
-    // Increment step for next iteration
     step++;
   }
 
-  // If reached step >= 6, loop auto-terminates gracefully
   return {
     query: userQuery,
     completed: false,
@@ -288,5 +340,6 @@ export async function runAgenticLoop(
     stepLogs,
     finalAnswer: `Limite máximo de iterações atingido (step < 6). Loop agentivo finalizado com segurança sem chamadas infinitas.`,
     accumulatedData,
+    parallelExecutionUsed: true,
   };
 }

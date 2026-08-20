@@ -66,25 +66,32 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-start justify-center pt-20 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-start justify-center pt-4 sm:pt-20 p-3 sm:p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 my-auto sm:my-0">
         {/* Search input header */}
-        <div className="p-4 border-b border-slate-800 flex items-center gap-3">
+        <div className="p-3 sm:p-4 border-b border-slate-800 flex items-center gap-2.5 sm:gap-3">
           <Search className="w-5 h-5 text-sky-400 shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pesquisar ticker, empresa ou ativo (ex: NVDA, PETR4.SA, BTC-USD, SPY)..."
-            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-hidden font-medium"
+            placeholder="Pesquisar ticker, empresa ou ativo (ex: NVDA, PETR4.SA, BTC-USD)..."
+            className="w-full bg-transparent text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-hidden font-medium min-h-[38px]"
           />
-          {query && (
+          {query ? (
             <button
               onClick={() => setQuery('')}
-              className="text-slate-500 hover:text-white p-1"
+              className="text-slate-500 hover:text-white p-1.5"
             >
               <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1.5 sm:hidden"
+            >
+              <X className="w-5 h-5" />
             </button>
           )}
           <kbd className="hidden sm:inline-block bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-mono px-2 py-0.5 rounded">

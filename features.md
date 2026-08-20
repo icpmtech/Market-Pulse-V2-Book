@@ -95,6 +95,7 @@ O **Market Pulse** é uma plataforma financeira moderna e robusta para análise 
   - Cálculo em tempo real de Lucro/Prejuízo (P&L $ e %) e alocação percentual da carteira.
 - **Alertas de Preço**: Notificações configuráveis quando um ticker atinge determinado patamar de preço.
 - **Comparador Multi-Ticker**: Comparação simultânea de até 4 ativos lado a lado com métricas de desempenho normalizado.
+- **Integração com Gmail (Google Workspace)**: Envio instantâneo de relatórios financeiros, resumos de cotações e análises técnicas diretamente para e-mails via Gmail API v1 com autenticação Google Sign-In e diálogo de confirmação.
 
 ---
 

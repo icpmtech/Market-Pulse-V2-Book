@@ -41,13 +41,14 @@ export const TickerComparisonModal: React.FC<TickerComparisonModalProps> = ({
 
     const fetchAll = async () => {
       setLoading(true);
-      const list: StockQuote[] = [];
-      for (const s of symbols) {
-        const res = await executeFunction('get_stock_quote', { symbol: s });
-        if (res.success && res.data) {
-          list.push(res.data);
-        }
-      }
+      // Parallel execution: fetch quotes for all comparison symbols simultaneously
+      const results = await Promise.all(
+        symbols.map((s) => executeFunction('get_stock_quote', { symbol: s }))
+      );
+      const list = results
+        .filter((res) => res.success && res.data)
+        .map((res) => res.data as StockQuote);
+
       setQuotes(list);
       setLoading(false);
     };
@@ -73,33 +74,33 @@ export const TickerComparisonModal: React.FC<TickerComparisonModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-auto">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <GitCompare className="w-5 h-5 text-sky-400" />
+            <GitCompare className="w-5 h-5 text-sky-400 shrink-0" />
             <div>
-              <h2 className="text-base font-bold text-white">Comparador Multi-Ticker</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-sm sm:text-base font-bold text-white">Comparador Multi-Ticker</h2>
+              <p className="text-[11px] sm:text-xs text-slate-400">
                 Compare múltiplos de valuation, retorno, risco e dividendos de até 4 ativos
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
             {symbols.length < 4 && (
-              <form onSubmit={handleAddTicker} className="flex items-center gap-1.5">
+              <form onSubmit={handleAddTicker} className="flex items-center gap-1.5 flex-1 sm:flex-initial">
                 <input
                   type="text"
-                  placeholder="+ Ticker (ex: AMD)"
+                  placeholder="+ Ticker"
                   value={newSym}
                   onChange={(e) => setNewSym(e.target.value.toUpperCase())}
-                  className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-hidden w-32"
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-hidden w-24 sm:w-32 min-h-[34px]"
                 />
                 <button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded-lg font-semibold"
+                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded-lg font-semibold min-h-[34px]"
                 >
                   Adicionar
                 </button>
@@ -108,7 +109,7 @@ export const TickerComparisonModal: React.FC<TickerComparisonModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>

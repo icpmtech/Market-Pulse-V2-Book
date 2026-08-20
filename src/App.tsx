@@ -27,6 +27,8 @@ import { SkillsApiConsole } from './components/SkillsApiConsole';
 import { TickerComparisonModal } from './components/TickerComparisonModal';
 import { PriceAlertsModal } from './components/PriceAlertsModal';
 import { FeaturesDocModal } from './components/FeaturesDocModal';
+import { GmailShareModal } from './components/GmailShareModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 import {
   LineChart,
@@ -68,30 +70,32 @@ export default function App() {
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
+  const [isGmailShareOpen, setIsGmailShareOpen] = useState(false);
 
-  // Load ticker data via executeFunction wrapper with TTL caching & graceful error recovery
+  // Load ticker data via executeFunction wrapper with Parallel Promise.all execution, TTL caching & graceful error recovery
   const loadTickerData = useCallback(
     async (sym: string, p: string = period, i: string = interval) => {
       setIsLoading(true);
       setErrorMsg(null);
       try {
-        // Skill 1: get_stock_quote (with TTL cache & graceful error capture)
-        const quoteRes = await executeFunction('get_stock_quote', { symbol: sym });
+        // Parallel Function Calling: Execute independent requests simultaneously using Promise.all
+        const [quoteRes, historyRes, insightsRes] = await Promise.all([
+          executeFunction('get_stock_quote', { symbol: sym }),
+          executeFunction('get_price_history', { symbol: sym, range: p, interval: i }),
+          executeFunction('get_analyst_insights', { symbol: sym }),
+        ]);
+
         if (!quoteRes.success || !quoteRes.data) {
           setErrorMsg(quoteRes.error || `Símbolo '${sym}' não encontrado no Yahoo Finance.`);
           return;
         }
+
         const quoteData = quoteRes.data;
-        setQuote(quoteData);
-
-        // Skill 2: get_price_history
-        const historyRes = await executeFunction('get_price_history', { symbol: sym, range: p, interval: i });
         const historyData = historyRes.data || [];
-        setHistory(historyData);
-
-        // Skill 3: get_analyst_insights
-        const insightsRes = await executeFunction('get_analyst_insights', { symbol: sym });
         const insightsData = insightsRes.data || null;
+
+        setQuote(quoteData);
+        setHistory(historyData);
         setInsights(insightsData);
 
         // Compute technical indicators from history
@@ -153,6 +157,7 @@ export default function App() {
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenSkillsConsole={() => setIsSkillsOpen(true)}
         onOpenFeaturesDoc={() => setIsFeaturesOpen(true)}
+        onOpenGmailShare={() => setIsGmailShareOpen(true)}
         onSelectTicker={handleSelectTicker}
         activeTab={activeTab}
         onSelectTab={(tab: any) => setActiveTab(tab)}
@@ -161,7 +166,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-20 md:pb-6 space-y-4 sm:space-y-6">
         {/* Error Alert if any */}
         {errorMsg && (
           <div className="p-4 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex items-center justify-between shadow-lg">
@@ -183,6 +188,7 @@ export default function App() {
             onOpenAlerts={() => setIsAlertsOpen(true)}
             onOpenCompare={() => setIsCompareOpen(true)}
             onOpenPortfolio={() => setActiveTab('portfolio')}
+            onOpenGmailShare={() => setIsGmailShareOpen(true)}
             isRefreshing={isRefreshing}
           />
         )}
@@ -380,6 +386,23 @@ export default function App() {
       <FeaturesDocModal
         isOpen={isFeaturesOpen}
         onClose={() => setIsFeaturesOpen(false)}
+      />
+
+      <GmailShareModal
+        isOpen={isGmailShareOpen}
+        onClose={() => setIsGmailShareOpen(false)}
+        quote={quote}
+        insights={insights}
+        technical={indicators}
+        fundamental={fundamentalMetrics}
+      />
+
+      {/* Mobile-First Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab as any)}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenGmailShare={() => setIsGmailShareOpen(true)}
       />
     </div>
   );

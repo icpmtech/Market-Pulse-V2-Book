@@ -2,5 +2,7 @@
   "name": "Market Pulse - Yahoo Finance & Technical Analysis",
   "description": "Plataforma financeira avançada com Yahoo Finance API / yFinance skills (get_stock_quote, get_price_history, get_analyst_insights), gráficos interativos Apache ECharts, análise técnica e fundamentalista de tickers.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
